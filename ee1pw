@@ -1,0 +1,121 @@
+#!/usr/bin/env python3
+
+import argparse
+import datetime
+import json
+import os
+import shutil
+import subprocess
+import sys
+import tarfile
+import tempfile
+
+
+class Ee1pwSubprocessError(Exception):
+    pass
+
+
+def command_line():
+    parser = argparse.ArgumentParser(description='Export and Encrypt 1Password Vaults.')
+    parser.add_argument('--account', metavar='SHORTHAND', default="my",
+                        help='1Password Account shorthand. Defaults to "my".')
+    parser.add_argument('--gpg-key', metavar='KEYID', required=True,
+                        help='The gpg key used to encrypt the export.')
+    args = parser.parse_args()
+    return args.account, args.gpg_key
+
+
+def run_gpg(command):
+    result = subprocess.run(command, capture_output=True, check=False, text=True)
+    if not result.returncode:
+        return True
+
+    print(result.stderr, file=sys.stderr)
+    message = 'Command "{command}" returned non-zero exit status {code}.'.format(
+        command=str(command),
+        code=str(result.returncode),
+    )
+    raise Ee1pwSubprocessError(message)
+
+
+def encrypt_entry(entry, export_directory, vault_directory, keyid):
+    filename = '{name}_{uuid}.json.gpg'.format(
+        name=safe_name(entry['overview']['title']),
+        uuid=entry['uuid'],
+    )
+    encrypted_path = os.path.join(export_directory, vault_directory, filename)
+
+    plaintext = tempfile.NamedTemporaryFile(mode='w')
+    json.dump(entry, plaintext, indent=2)
+    plaintext.flush()
+
+    run_gpg(['gpg', '--batch', '--recipient', keyid,
+             '--output', encrypted_path, '--encrypt', plaintext.name])
+    plaintext.close()
+
+
+def safe_name(name):
+    return "".join([c for c in name if c.isalpha() or c.isdigit()])
+
+
+def get_content(shorthand):
+    op_cmd = ['op', '--account', shorthand]
+
+    list_vaults = subprocess.run(op_cmd + ['list', 'vaults'],
+                                 stdout=subprocess.PIPE, check=True, text=True)
+    vaults = json.loads(list_vaults.stdout)
+    vault_directories = {}
+    for vault in vaults:
+        vault_directories[vault['uuid']] = '{name}_{uuid}'.format(
+            name=safe_name(vault['name']),
+            uuid=vault['uuid'],
+        )
+
+    list_items = subprocess.run(op_cmd + ['list', 'items'],
+                                stdout=subprocess.PIPE, check=True, text=True)
+    get_items = subprocess.run(op_cmd + ['get', 'item', '-'], input=list_items.stdout,
+                               stdout=subprocess.PIPE, check=True, text=True)
+    items = get_items.stdout.rstrip().split('\n')
+    entries = []
+    for item in items:
+        entry = json.loads(item)
+        entries.append(entry)
+
+    return vault_directories, entries
+
+
+def export_and_encrypt(vault_directories, entries, shorthand, keyid):
+    nowish = datetime.datetime.utcnow().strftime('%Y%m%d%H%M%S')
+    export_name = '{account}-1password-{timestamp}'.format(
+        account=shorthand, timestamp=nowish)
+    workdir = tempfile.TemporaryDirectory()
+    export_tar = os.path.join(workdir.name, export_name + '.tar')
+    export_gpg = export_tar + '.gpg'
+
+    export_directory = os.path.join(workdir.name, export_name)
+    os.mkdir(export_directory, mode=0o700)
+
+    for _, directory in vault_directories.items():
+        os.mkdir(os.path.join(export_directory, directory), mode=0o700)
+
+    for entry in entries:
+        vault_directory = vault_directories[entry['vaultUuid']]
+        encrypt_entry(entry, export_directory, vault_directory, keyid)
+
+    with tarfile.open(export_tar, 'x:') as tar:
+        tar.add(export_directory, arcname=os.path.basename(export_directory))
+    run_gpg(['gpg', '--batch', '--recipient', keyid,
+             '--output', export_gpg, '--encrypt', export_tar])
+
+    shutil.copy2(export_gpg, '.')
+    workdir.cleanup()
+
+
+def main():
+    shorthand, keyid = command_line()
+    vault_directories, entries = get_content(shorthand)
+    export_and_encrypt(vault_directories, entries, shorthand, keyid)
+
+
+if __name__ == "__main__":
+    main()

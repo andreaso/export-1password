@@ -1,0 +1,19 @@
+---
+
+name: Linting
+
+on: push
+
+jobs:
+  pylint:
+    name: Run Pylint
+    runs-on: ubuntu-20.04
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v2
+
+      - name: Install Pylint
+        run: sudo apt-get install --no-install-recommends --yes pylint
+
+      - name: Run Pylint
+        run: pylint ee1pw
