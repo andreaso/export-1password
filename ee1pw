@@ -25,6 +25,14 @@ def command_line():
     return args.account, args.gpg_key
 
 
+def signin(shorthand):
+    do_signin = subprocess.run(['op', '--account', shorthand, 'signin', '--raw'],
+                               stdout=subprocess.PIPE, check=True, text=True)
+    session_key = do_signin.stdout.rstrip()
+    session_name = 'OP_SESSION_' + shorthand
+    os.environ[session_name] = session_key
+
+
 def run_gpg(command):
     result = subprocess.run(command, capture_output=True, check=False, text=True)
     if not result.returncode:
@@ -113,6 +121,7 @@ def export_and_encrypt(vault_directories, entries, shorthand, keyid):
 
 def main():
     shorthand, keyid = command_line()
+    signin(shorthand)
     vault_directories, entries = get_content(shorthand)
     export_and_encrypt(vault_directories, entries, shorthand, keyid)
 

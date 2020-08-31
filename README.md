@@ -5,11 +5,23 @@ This _ee1pw_ script uses the [1Password CLI][1] to produce an
 
 ### Usage
 
+Before using the backup script for the first time you will need to
+perform a "full" signin, having the CLI setup your _~/.op/config_ file.
+
 ```
-op signin
-  export export OP_SESSION_my="..."
+op signin my.1password.com foo.bar@example.com
+```
+
+After that you just call the script directly, and it will prompt you
+for your Master Password.
+
+```
 ./ee1pw --gpg-key 0x1234567890ABCDEF
 ```
+
+Assuming everything goes well an encrypted tarball will be created in
+your current working directory.
+
 
 ### Potential Questions
 
