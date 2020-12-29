@@ -33,7 +33,10 @@ def signin(shorthand):
     os.environ[session_name] = session_key
 
 
-def run_gpg(command):
+def gpg_encrypt(keyid, encrypted_path, plaintext_path):
+    command = ['gpg', '--batch', '--recipient', keyid,
+               '--output', encrypted_path, '--encrypt', plaintext_path]
+
     result = subprocess.run(command, capture_output=True, check=False, text=True)
     if not result.returncode:
         return True
@@ -57,8 +60,7 @@ def encrypt_entry(entry, export_directory, vault_directory, keyid):
     json.dump(entry, plaintext, indent=2)
     plaintext.flush()
 
-    run_gpg(['gpg', '--batch', '--recipient', keyid,
-             '--output', encrypted_path, '--encrypt', plaintext.name])
+    gpg_encrypt(keyid, encrypted_path, plaintext.name)
     plaintext.close()
 
 
@@ -112,8 +114,7 @@ def export_and_encrypt(vault_directories, entries, shorthand, keyid):
 
     with tarfile.open(export_tar, 'x:') as tar:
         tar.add(export_directory, arcname=os.path.basename(export_directory))
-    run_gpg(['gpg', '--batch', '--recipient', keyid,
-             '--output', export_gpg, '--encrypt', export_tar])
+    gpg_encrypt(keyid, export_gpg, export_tar)
 
     shutil.copy2(export_gpg, '.')
     workdir.cleanup()
