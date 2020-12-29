@@ -49,6 +49,17 @@ def gpg_encrypt(keyid, encrypted_path, plaintext_path):
     raise Ee1pwSubprocessError(message)
 
 
+def validate_gpg_key(keyid):
+    workdir = tempfile.TemporaryDirectory()
+    plaintext_path = os.path.join(workdir.name, 'plaintext')
+    encrypted_path = os.path.join(workdir.name, 'encrypted')
+
+    with open(plaintext_path, 'w') as plaintext_file:
+        plaintext_file.write('Hello World\n')
+
+    gpg_encrypt(keyid, encrypted_path, plaintext_path)
+
+
 def encrypt_entry(entry, export_directory, vault_directory, keyid):
     filename = '{name}_{uuid}.json.gpg'.format(
         name=safe_name(entry['overview']['title']),
@@ -122,6 +133,7 @@ def export_and_encrypt(vault_directories, entries, shorthand, keyid):
 
 def main():
     shorthand, keyid = command_line()
+    validate_gpg_key(keyid)
     signin(shorthand)
     vault_directories, entries = get_content(shorthand)
     export_and_encrypt(vault_directories, entries, shorthand, keyid)
