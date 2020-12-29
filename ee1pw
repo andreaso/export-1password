@@ -4,6 +4,7 @@ import argparse
 import datetime
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -33,9 +34,19 @@ def signin(shorthand):
     os.environ[session_name] = session_key
 
 
+def trusted_keyid(keyid):
+    regex = r'^(0x)?[0-9A-Fa-f]{40}$'
+    if re.search(regex, keyid):
+        return True
+    return False
+
+
 def gpg_encrypt(keyid, encrypted_path, plaintext_path):
     command = ['gpg', '--batch', '--recipient', keyid,
                '--output', encrypted_path, '--encrypt', plaintext_path]
+
+    if trusted_keyid(keyid):
+        command[1:1] = ['--trust-model', 'always']
 
     result = subprocess.run(command, capture_output=True, check=False, text=True)
     if not result.returncode:
