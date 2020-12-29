@@ -6,7 +6,7 @@ This _ee1pw_ script uses the [1Password CLI][1] to produce an
 ### Usage
 
 Before using the backup script for the first time you will need to
-perform a "full" signin, having the CLI setup your _~/.op/config_ file.
+perform a "full" signin, having the CLI setup your _~/.config/op/config_ file.
 
 ```
 op signin my.1password.com foo.bar@example.com
