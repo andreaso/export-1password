@@ -17,13 +17,21 @@ class Ee1pwSubprocessError(Exception):
 
 
 def command_line():
+    req_gpg_key = not 'EE1PW_GPG_KEY' in os.environ
+
     parser = argparse.ArgumentParser(description='Export and Encrypt 1Password Vaults.')
     parser.add_argument('--account', metavar='SHORTHAND', default="my",
                         help='1Password Account shorthand. Defaults to "my".')
-    parser.add_argument('--gpg-key', metavar='KEYID', required=True,
+    parser.add_argument('--gpg-key', metavar='KEYID', required=req_gpg_key,
                         help='The gpg key used to encrypt the export.')
     args = parser.parse_args()
-    return args.account, args.gpg_key
+
+    if args.gpg_key:
+        the_gpg_key = args.gpg_key
+    else:
+        the_gpg_key = os.environ['EE1PW_GPG_KEY']
+
+    return args.account, the_gpg_key
 
 
 def signin(shorthand):
